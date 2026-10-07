@@ -113,6 +113,9 @@ struct SigningFlow: Hashable, Sendable {
 
     private(set) var result: SigningResult?
     private(set) var pageState: SigningPageState?
+    /// Identifiers learned from earlier page events (the embedded page sends them with `viewed`), used to
+    /// complete outcomes detected from the page content, which carries none.
+    private(set) var knownReference: SigningReference = .unknown
 
     var isFinished: Bool { result != nil }
 
@@ -120,18 +123,34 @@ struct SigningFlow: Hashable, Sendable {
         guard result == nil else { return .ignored }
         switch signal {
         case .viewed(let reference):
+            remember(reference)
             return .event(.viewed(reference))
         case let .signed(reference, detection):
-            return finish(.signed(SigningOutcome(reference: reference, detection: detection)))
+            let resolved = resolve(reference)
+            return finish(.signed(SigningOutcome(reference: resolved, detection: detection)))
         case let .declined(reference, reason, detection):
-            return finish(.declined(SigningOutcome(reference: reference, detection: detection, reason: reason)))
+            let resolved = resolve(reference)
+            return finish(.declined(SigningOutcome(reference: resolved, detection: detection, reason: reason)))
         case .failed(let reason):
             return finish(reason == "session_expired" ? .expired : .failed(.pageError(reason)))
         case let .state(state, reference, detection):
-            return apply(state: state, reference: reference, detection: detection)
+            let resolved = resolve(reference)
+            return apply(state: state, reference: resolved, detection: detection)
         case let .other(name, fields):
             return .event(.pageMessage(name: name, fields: fields))
         }
+    }
+
+    private mutating func remember(_ reference: SigningReference) {
+        knownReference = SigningReference(
+            signatureRequestID: reference.signatureRequestID ?? knownReference.signatureRequestID,
+            signerID: reference.signerID ?? knownReference.signerID
+        )
+    }
+
+    private mutating func resolve(_ reference: SigningReference) -> SigningReference {
+        remember(reference)
+        return knownReference
     }
 
     mutating func apply(returnMatch match: ReturnURLMatch) -> Effect {

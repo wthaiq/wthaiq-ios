@@ -115,6 +115,16 @@ final class SigningFlowTests: XCTestCase {
         XCTAssertEqual(flow.result, expected)
     }
 
+    func testContentOutcomeUsesIdentifiersFromEarlierEvents() {
+        var flow = SigningFlow()
+        _ = flow.apply(.viewed(SigningReference(signatureRequestID: "sr_7")))
+        _ = flow.apply(.viewed(SigningReference(signerID: "sgr_7")))
+        let expected = SigningReference(signatureRequestID: "sr_7", signerID: "sgr_7")
+        XCTAssertEqual(flow.knownReference, expected)
+        XCTAssertEqual(flow.apply(.signed(.unknown, .pageContent)),
+                       .finish(.signed(SigningOutcome(reference: expected, detection: .pageContent))))
+    }
+
     func testDeclinedKeepsReason() {
         var flow = SigningFlow()
         let effect = flow.apply(.declined(.unknown, reason: "signer_declined", .pageEvent))
