@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Swift build and core tests (macOS host)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Build
+        run: swift build -v
+      - name: Test (platform-independent logic, including the injected script in JavaScriptCore)
+        run: swift test --parallel
+
+  ios:
+    name: iOS simulator build and tests
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pick an iPhone simulator
+        id: simulator
+        run: |
+          UDID=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          runtimes = sorted((name for name in devices if "iOS" in name), reverse=True)
+          for runtime in runtimes:
+              for device in devices[runtime]:
+                  if device.get("isAvailable") and device["name"].startswith("iPhone"):
+                      print(device["udid"])
+                      sys.exit(0)
+          sys.exit(1)
+          ')
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+          echo "Using simulator $UDID"
+      - name: Pick the package scheme
+        id: scheme
+        run: |
+          SCHEME=$(xcodebuild -list -json | python3 -c '
+          import json, sys
+          schemes = json.load(sys.stdin).get("workspace", {}).get("schemes", [])
+          preferred = [s for s in schemes if s == "WthaiqSigning-Package"] or [s for s in schemes if s == "WthaiqSigning"]
+          print(preferred[0] if preferred else schemes[0])
+          ')
+          echo "name=$SCHEME" >> "$GITHUB_OUTPUT"
+          echo "Using scheme $SCHEME"
+      - name: Build and test
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -scheme "${{ steps.scheme.outputs.name }}" \
+            -destination "id=${{ steps.simulator.outputs.udid }}" \
+            -enableCodeCoverage YES \
+            CODE_SIGNING_ALLOWED=NO
+
+  example:
+    name: Example app
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate the project
+        working-directory: Examples/WthaiqSigningDemo
+        run: xcodegen generate
+      - name: Build for the simulator
+        working-directory: Examples/WthaiqSigningDemo
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project WthaiqSigningDemo.xcodeproj \
+            -scheme WthaiqSigningDemo \
+            -destination "generic/platform=iOS Simulator" \
+            CODE_SIGNING_ALLOWED=NO
+
+  lint:
+    name: SwiftLint
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SwiftLint
+        run: command -v swiftlint >/dev/null || brew install swiftlint
+      - name: Lint
+        run: swiftlint lint --reporter github-actions-logging
