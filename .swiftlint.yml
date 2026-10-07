@@ -1,0 +1,51 @@
+included:
+  - Sources
+  - Tests
+  - Examples/WthaiqSigningDemo/WthaiqSigningDemo
+
+excluded:
+  - .build
+  - Examples/WthaiqSigningDemo/WthaiqSigningDemo.xcodeproj
+
+disabled_rules:
+  - todo
+  - nesting
+
+opt_in_rules:
+  - empty_count
+  - first_where
+  - force_unwrapping
+  - redundant_nil_coalescing
+  - toggle_bool
+
+line_length:
+  warning: 140
+  error: 200
+  ignores_comments: true
+  ignores_urls: true
+
+file_length:
+  warning: 800
+  error: 1200
+
+type_body_length:
+  warning: 500
+  error: 800
+
+function_body_length:
+  warning: 80
+  error: 150
+
+cyclomatic_complexity:
+  warning: 25
+  error: 30
+
+identifier_name:
+  min_length: 1
+  excluded:
+    - id
+    - ok
+
+large_tuple:
+  warning: 3
+  error: 4

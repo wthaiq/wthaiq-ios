@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+/Packages/
+
+# Xcode
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+*.xcresult
+timeline.xctimeline
+playground.xcworkspace
+
+# Created by XcodeGen from Examples/WthaiqSigningDemo/project.yml
+Examples/WthaiqSigningDemo/*.xcodeproj/
+Examples/WthaiqSigningDemo/WthaiqSigningDemo/Info.plist
